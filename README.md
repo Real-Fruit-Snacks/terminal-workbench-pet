@@ -4,6 +4,8 @@
 [![License: MIT](https://img.shields.io/github/license/Real-Fruit-Snacks/terminal-workbench-pet?color=2a9d6e)](LICENSE)
 [![Obsidian](https://img.shields.io/badge/obsidian-1.5.0%2B-483699)](https://obsidian.md)
 
+![Terminal Workbench Pet](cover.png)
+
 A small floating ghost that lives in your Obsidian vault. It drifts around the workspace on its own, peeks over headings, reads along the paragraph you're on, spooks away from your cursor, naps in the corner when you're idle, and recolors itself when you boop it.
 
 It's the companion to the [Terminal Workbench](https://github.com/Real-Fruit-Snacks/terminal-workbench) theme — the ghost matches that theme's palette out of the box — but it works with any theme.
