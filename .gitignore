@@ -1,0 +1,10 @@
+# Dev tooling and process artifacts — never ship these
+.claude/
+docs/cover.html
+docs/superpowers/
+
+# OS / editor / build noise
+.DS_Store
+node_modules/
+*.log
+.obsidian/

@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Terminal Workbench Pet — a floating ghost for Obsidian</title>
+  <meta name="description" content="A small floating ghost companion for Obsidian: it drifts around your vault, follows your cursor, and recolors when you boop it. Matches the Terminal Workbench theme.">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#090c0d" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#f5f7f4" media="(prefers-color-scheme: light)">
+  <script>
+    try {
+      var m = localStorage.getItem("twp-mode");
+      if (m === "light" || m === "dark") document.documentElement.setAttribute("data-theme", m);
+    } catch (e) {}
+  </script>
+  <style>
+    :root[data-theme="dark"] {
+      --bg-0: #090c0d; --bg-1: #0e1214; --bg-2: #13191c; --bg-3: #182024;
+      --border: #2a363d; --border-strong: #39484f;
+      --text: #dce4df; --text-soft: #b4c3bd; --muted: #879994; --faint: #63736f;
+      --ta-accent: #63f2ab; --ta-accent-alt: #6bdcff; --ta-warm: #f0c674;
+      --ta-violet: #b78cff; --ta-orange: #f7a35c; --ta-red: #ff6e7a;
+      --ta-bg-0: #090c0d;
+      --on-accent: #07100d;
+      color-scheme: dark;
+    }
+    :root[data-theme="light"] {
+      --bg-0: #f5f7f4; --bg-1: #edf2ee; --bg-2: #e2eae5; --bg-3: #d6e1db;
+      --border: #bfcbc5; --border-strong: #9daea7;
+      --text: #17201d; --text-soft: #34443f; --muted: #60706a; --faint: #81918a;
+      --ta-accent: #007a4d; --ta-accent-alt: #006f9e; --ta-warm: #a46600;
+      --ta-violet: #7357b8; --ta-orange: #b65800; --ta-red: #c8324c;
+      --ta-bg-0: #f5f7f4;
+      --on-accent: #f9fbf8;
+      color-scheme: light;
+    }
+    :root { --interactive-accent: var(--ta-accent); --background-primary: var(--ta-bg-0);
+            --text-muted: var(--muted); --font-monospace: "Berkeley Mono","JetBrains Mono","Cascadia Code",Consolas,monospace; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; }
+    body {
+      background: var(--bg-0); color: var(--text);
+      font-family: "Inter","SF Pro Text","Segoe UI",system-ui,sans-serif;
+      font-size: 15px; line-height: 1.7;
+    }
+    .mono { font-family: var(--font-monospace); }
+    .label { font-family: var(--font-monospace); font-size: 10.5px; font-weight: 700;
+             letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted); }
+    a { color: var(--ta-accent-alt); text-decoration: none; }
+    a:hover { text-decoration: underline; text-underline-offset: 3px; }
+    .wrap { max-width: 940px; margin: 0 auto; padding: 0 24px; }
+
+    .topbar { position: sticky; top: 0; z-index: 30; background: var(--bg-1); border-bottom: 1px solid var(--border); }
+    .topbar-inner { display: flex; align-items: center; justify-content: space-between; height: 46px; }
+    .topbar .label { color: var(--ta-accent); }
+    .topbar-links { display: flex; align-items: center; gap: 18px; }
+    .topbar-links a { color: var(--muted); font-size: 13px; }
+    .topbar-links a:hover { color: var(--text); text-decoration: none; }
+    .toggle { font: inherit; font-size: 12px; cursor: pointer; background: var(--bg-2);
+              color: var(--text-soft); border: 1px solid var(--border); border-radius: 6px; padding: 4px 12px; }
+    .toggle:hover { border-color: var(--border-strong); color: var(--text); }
+
+    .hero { padding: 72px 0 8px; }
+    .hero h1 { font-family: var(--font-monospace); font-size: 38px; font-weight: 760; line-height: 1.15; margin: 0 0 4px; }
+    .hero h1 .prompt { color: var(--ta-accent); }
+    .hero p.tagline { color: var(--text-soft); max-width: 620px; margin: 14px 0 26px; }
+    .btns { display: flex; gap: 12px; flex-wrap: wrap; }
+    .btn { display: inline-block; padding: 9px 18px; border-radius: 6px; font-size: 13.5px; font-weight: 650; border: 1px solid var(--border); }
+    .btn-primary { background: var(--ta-accent); color: var(--on-accent); border-color: transparent; }
+    .btn-primary:hover { text-decoration: none; filter: brightness(1.08); }
+    .btn-quiet { color: var(--text-soft); background: var(--bg-1); }
+    .btn-quiet:hover { text-decoration: none; color: var(--text); border-color: var(--border-strong); }
+
+    .playground { margin: 30px 0 0; border: 1px solid var(--border); border-radius: 12px; background: var(--bg-1);
+                  padding: 22px; display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
+    .playground .hint { color: var(--muted); font-size: 13.5px; }
+    .playground .hint b { color: var(--text); font-weight: 650; }
+    .modes { display: flex; gap: 8px; }
+    .modes button { font: inherit; font-size: 13px; cursor: pointer; background: var(--bg-2); color: var(--text-soft);
+                    border: 1px solid var(--border); border-radius: 6px; padding: 6px 14px; }
+    .modes button.active { background: var(--ta-accent); color: var(--on-accent); border-color: transparent; font-weight: 650; }
+    .modes button:not(.active):hover { border-color: var(--border-strong); color: var(--text); }
+
+    section.block { padding: 56px 0 0; }
+    section.block > .label { display: block; padding-bottom: 10px; border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent); margin-bottom: 24px; }
+    section.block > h2 { font-size: 22px; font-weight: 700; margin: 0 0 6px; }
+    section.block > p.lead { color: var(--text-soft); max-width: 640px; margin: 0 0 26px; }
+
+    .features { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+    .feature { border: 1px solid var(--border); border-radius: 8px; background: var(--bg-1); padding: 16px 18px; }
+    .feature .name { font-size: 13.5px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+    .feature p { font-size: 13px; color: var(--muted); margin: 0; line-height: 1.6; }
+
+    ol.steps { color: var(--text-soft); font-size: 14px; padding-left: 20px; }
+    ol.steps li { margin: 6px 0; }
+    ol.steps code { font-family: var(--font-monospace); font-size: 0.92em; background: var(--bg-2); border: 1px solid var(--border); border-radius: 4px; padding: 1px 6px; }
+
+    footer { margin-top: 60px; border-top: 1px solid var(--border); padding: 22px 0 60px; color: var(--faint); font-size: 12.5px; }
+    footer a { color: var(--muted); }
+
+    /* --- the live ghost (from the plugin's styles.css) --- */
+    #tw-pet { position: fixed; left: 0; top: 0; width: 28px; height: 28px; z-index: 25; pointer-events: none; opacity: 0.7; transition: opacity 0.9s ease;
+      --pet-0: var(--ta-accent); --pet-1: var(--ta-accent-alt); --pet-2: var(--ta-warm);
+      --pet-3: var(--ta-violet); --pet-4: var(--ta-orange); --pet-5: var(--ta-red); --pet-eye: var(--ta-bg-0); }
+    #tw-pet.pet-nap { opacity: 0.3; }
+    .pet-tilt { width: 100%; height: 100%; }
+    .pet-sprite { width: 100%; height: 100%; pointer-events: auto; cursor: pointer; animation: pet-bob 2.4s ease-in-out infinite; }
+    .pet-sprite svg { display: block; width: 100%; height: 100%; shape-rendering: crispEdges; }
+    .pet-body { fill: var(--pet-0); }
+    #tw-pet[data-color="1"] .pet-body { fill: var(--pet-1); }
+    #tw-pet[data-color="2"] .pet-body { fill: var(--pet-2); }
+    #tw-pet[data-color="3"] .pet-body { fill: var(--pet-3); }
+    #tw-pet[data-color="4"] .pet-body { fill: var(--pet-4); }
+    #tw-pet[data-color="5"] .pet-body { fill: var(--pet-5); }
+    .pet-eyes-open rect, .pet-eyes-closed rect { fill: var(--pet-eye); }
+    .pet-eyes-happy path { stroke: var(--pet-eye); stroke-width: 1.2; fill: none; }
+    .pet-eyes-closed, .pet-eyes-happy { display: none; }
+    .pet-sprite.pet-blink .pet-eyes-open, #tw-pet.pet-nap .pet-eyes-open, .pet-sprite.pet-happy .pet-eyes-open { display: none; }
+    .pet-sprite.pet-blink .pet-eyes-closed, #tw-pet.pet-nap .pet-eyes-closed { display: inline; }
+    .pet-sprite.pet-happy .pet-eyes-happy { display: inline; }
+    .pet-sprite.pet-happy { animation: pet-boop 0.5s ease-in-out; }
+    .pet-sprite.pet-spook { animation: pet-spook 0.5s ease-out; }
+    .pet-sprite.pet-spin { animation: pet-spin 0.74s ease-in-out; }
+    .pet-sprite.pet-flip { animation: pet-flip 0.74s ease-in-out; }
+    #tw-pet.pet-startled { animation: pet-startle-fade 0.7s ease-out; }
+    .pet-particle { position: absolute; left: 9px; top: -8px; font-family: var(--font-monospace); font-size: 12px; font-weight: 700; pointer-events: none; animation: pet-float 1.3s ease-out forwards; }
+    .pet-heart { color: var(--ta-red); } .pet-bang { color: var(--ta-accent); } .pet-z { color: var(--muted); }
+    @keyframes pet-bob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+    @keyframes pet-boop { 0%,100% { transform: scale(1); } 30% { transform: scale(1.35); } 60% { transform: scale(0.9); } }
+    @keyframes pet-spook { 0% { transform: scaleY(1) scaleX(1); } 25% { transform: scaleY(1.5) scaleX(0.65); } 60% { transform: scaleY(0.9) scaleX(1.12); } 100% { transform: scaleY(1) scaleX(1); } }
+    @keyframes pet-spin { from { transform: rotate(0); } to { transform: rotate(360deg); } }
+    @keyframes pet-flip { from { transform: rotateY(0); } to { transform: rotateY(360deg); } }
+    @keyframes pet-startle-fade { 0% { opacity: 0.7; } 30% { opacity: 0.25; } 100% { opacity: 0.7; } }
+    @keyframes pet-float { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(-26px); } }
+    @media (prefers-reduced-motion: reduce) { .pet-sprite, .pet-particle { animation: none !important; } }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="wrap topbar-inner">
+      <span class="label">Terminal Workbench Pet</span>
+      <div class="topbar-links">
+        <a href="https://github.com/Real-Fruit-Snacks/terminal-workbench-pet">GitHub</a>
+        <a href="https://github.com/Real-Fruit-Snacks/terminal-workbench-pet/releases/latest">Releases</a>
+        <button class="toggle" id="mode-toggle" aria-label="Toggle color scheme">light mode</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- main content is tagged with Obsidian-ish classes so the ghost's read/peek behavior has anchors here too -->
+  <main class="wrap workspace-leaf mod-active">
+   <div class="markdown-preview-view">
+    <section class="hero">
+      <h1><span class="prompt">$</span> a ghost for your vault</h1>
+      <p class="tagline">
+        A small floating ghost that drifts around your Obsidian workspace, peeks over headings,
+        reads along the text you're on, spooks away from your cursor, and naps in the corner.
+        Boop it to change its color. The one on this page is the real thing.
+      </p>
+      <div class="btns">
+        <a class="btn btn-primary" href="https://github.com/Real-Fruit-Snacks/terminal-workbench-pet#installation">Install</a>
+        <a class="btn btn-quiet" href="https://github.com/Real-Fruit-Snacks/terminal-workbench-pet">View source</a>
+      </div>
+
+      <div class="playground">
+        <div class="hint">There's a ghost floating on this page right now. <b>Click it to boop it</b> — it recolors. Try the modes:</div>
+        <div class="modes" id="modes">
+          <button data-mode="float" class="active">Float</button>
+          <button data-mode="cursor">Follow cursor</button>
+          <button data-mode="off">Off</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="block">
+      <span class="label">What it does</span>
+      <h2>A companion with a personality</h2>
+      <p class="lead">Not a static sticker — a little state machine that behaves like something alive.</p>
+      <div class="features">
+        <div class="feature"><div class="name">Jellyfish drift</div><p>In float mode it cruises slowly to waypoints, hovers, and picks its next move: wander, rest, or slip off an edge and reappear elsewhere.</p></div>
+        <div class="feature"><div class="name">Peek-a-boo</div><p>It hides at the edge of a heading, code block, or image, clinging to the side with a slow bob.</p></div>
+        <div class="feature"><div class="name">Reads along</div><p>Now and then it drifts beside the paragraph in the center of your view and bobs while you read.</p></div>
+        <div class="feature"><div class="name">Spooks &amp; naps</div><p>Get your cursor too close and it startles away with a squash-and-stretch. Idle a while and it dozes in the corner with little z's.</p></div>
+        <div class="feature"><div class="name">Follow-cursor mode</div><p>Prefer a lapdog? It trails a short distance behind your pointer and rests in place when you stop.</p></div>
+        <div class="feature"><div class="name">Boop to recolor</div><p>Click it to pet it — a happy squish, a tossed heart, and its body cycles the theme palette. Your color sticks.</p></div>
+      </div>
+    </section>
+
+    <section class="block">
+      <span class="label">Install</span>
+      <h2>Drop it in</h2>
+      <ol class="steps">
+        <li>Download <code>main.js</code>, <code>manifest.json</code>, and <code>styles.css</code> from the <a href="https://github.com/Real-Fruit-Snacks/terminal-workbench-pet/releases/latest">latest release</a>.</li>
+        <li>Copy them into <code>.obsidian/plugins/terminal-workbench-pet/</code> in your vault.</li>
+        <li>Enable <strong>Terminal Workbench Pet</strong> under <code>Settings → Community plugins</code>. Requires Obsidian <code>1.5.0</code>+.</li>
+        <li>Pairs with the <a href="https://github.com/Real-Fruit-Snacks/terminal-workbench">Terminal Workbench theme</a> — the ghost borrows its palette — but works with any theme.</li>
+      </ol>
+    </section>
+
+    <footer>
+      MIT licensed. Respects reduced-motion. No network requests.
+      <a href="https://github.com/Real-Fruit-Snacks/terminal-workbench-pet">Source on GitHub</a>.
+    </footer>
+   </div>
+  </main>
+
+  <script src="pet-demo.js"></script>
+  <script>
+    var root = document.documentElement;
+    var btn = document.getElementById("mode-toggle");
+    function setScheme(mode) {
+      root.setAttribute("data-theme", mode);
+      btn.textContent = mode === "dark" ? "light mode" : "dark mode";
+      try { localStorage.setItem("twp-mode", mode); } catch (e) {}
+    }
+    btn.addEventListener("click", function () {
+      setScheme(root.getAttribute("data-theme") === "dark" ? "light" : "dark");
+    });
+    var saved = null; try { saved = localStorage.getItem("twp-mode"); } catch (e) {}
+    setScheme(saved === "light" || saved === "dark" ? saved : "dark");
+
+    document.getElementById("modes").addEventListener("click", function (e) {
+      var b = e.target.closest("button[data-mode]");
+      if (!b || !window.twpetSetMode) return;
+      window.twpetSetMode(b.getAttribute("data-mode"));
+      this.querySelectorAll("button").forEach(function (x) { x.classList.remove("active"); });
+      b.classList.add("active");
+    });
+  </script>
+</body>
+</html>
