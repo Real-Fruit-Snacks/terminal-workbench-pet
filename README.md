@@ -42,6 +42,12 @@ Everything lives under **Settings → Terminal Workbench Pet** and applies insta
 
 ## Installation
 
+### Community plugins (recommended)
+
+1. Open `Settings → Community plugins` and select **Browse**.
+2. Search for `Terminal Workbench Pet` and select **Install**.
+3. **Enable** it.
+
 ### Manual
 
 1. Download `main.js`, `manifest.json`, and `styles.css` from the [latest release](https://github.com/Real-Fruit-Snacks/terminal-workbench-pet/releases/latest).
