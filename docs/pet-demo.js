@@ -113,10 +113,7 @@ function createPetEngine(pet, getSettings, hooks) {
   let petColor = 0;
   (function initColor() {
     const c = S().color;
-    if (typeof c === "number" && c >= 0 && c < COLOR_COUNT) { petColor = c | 0; return; }
-    try { petColor = parseInt(localStorage.getItem("tw-pet-color"), 10) || 0; }
-    catch (e) { /* private mode */ }
-    if (!(petColor >= 1 && petColor < COLOR_COUNT)) petColor = 0;
+    if (typeof c === "number" && c >= 0 && c < COLOR_COUNT) petColor = c | 0;
   })();
 
   // speech + reaction bookkeeping
@@ -162,14 +159,7 @@ function createPetEngine(pet, getSettings, hooks) {
   function cyclePetColor() {
     petColor = (petColor + 1) % COLOR_COUNT;
     applyPetColor();
-    if (hooks.onColorChange) {
-      hooks.onColorChange(petColor);
-    } else {
-      try {
-        if (petColor) localStorage.setItem("tw-pet-color", String(petColor));
-        else localStorage.removeItem("tw-pet-color");
-      } catch (e) { /* private mode */ }
-    }
+    if (hooks.onColorChange) hooks.onColorChange(petColor);
   }
 
   function applySize() {
@@ -804,11 +794,17 @@ function createPetEngine(pet, getSettings, hooks) {
     quips: true, reactions: true, napping: true,
     spookiness: true, readAlong: true, tricks: true,
   };
+  try {
+    var saved = parseInt(localStorage.getItem('tw-pet-color'), 10);
+    if (saved >= 1 && saved < 6) settings.color = saved;
+  } catch (e) { /* private mode */ }
+
   var engine = null;
   function apply() { if (engine) engine.notifySettingsChanged(); }
   window.twpetSetMode = function (m) { settings.mode = m; apply(); return settings.mode; };
   window.twpetSet = function (k, v) { settings[k] = v; apply(); return settings[k]; };
   window.twpetSettings = settings;
+
   var el = document.createElement('div');
   el.id = 'tw-pet'; el.setAttribute('aria-hidden', 'true');
   var tilt = document.createElement('div'); tilt.className = 'pet-tilt';
@@ -817,5 +813,14 @@ function createPetEngine(pet, getSettings, hooks) {
   sprite.appendChild(parseSvg(PET_SVG));
   tilt.appendChild(sprite); el.appendChild(tilt);
   document.body.appendChild(el);
-  engine = createPetEngine(el, function () { return settings; });
+
+  engine = createPetEngine(el, function () { return settings; }, {
+    onColorChange: function (c) {
+      settings.color = c;
+      try {
+        if (c) localStorage.setItem('tw-pet-color', String(c));
+        else localStorage.removeItem('tw-pet-color');
+      } catch (e) { /* private mode */ }
+    },
+  });
 })();

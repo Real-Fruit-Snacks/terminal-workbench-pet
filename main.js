@@ -115,10 +115,7 @@ function createPetEngine(pet, getSettings, hooks) {
   let petColor = 0;
   (function initColor() {
     const c = S().color;
-    if (typeof c === "number" && c >= 0 && c < COLOR_COUNT) { petColor = c | 0; return; }
-    try { petColor = parseInt(localStorage.getItem("tw-pet-color"), 10) || 0; }
-    catch (e) { /* private mode */ }
-    if (!(petColor >= 1 && petColor < COLOR_COUNT)) petColor = 0;
+    if (typeof c === "number" && c >= 0 && c < COLOR_COUNT) petColor = c | 0;
   })();
 
   // speech + reaction bookkeeping
@@ -164,14 +161,7 @@ function createPetEngine(pet, getSettings, hooks) {
   function cyclePetColor() {
     petColor = (petColor + 1) % COLOR_COUNT;
     applyPetColor();
-    if (hooks.onColorChange) {
-      hooks.onColorChange(petColor);
-    } else {
-      try {
-        if (petColor) localStorage.setItem("tw-pet-color", String(petColor));
-        else localStorage.removeItem("tw-pet-color");
-      } catch (e) { /* private mode */ }
-    }
+    if (hooks.onColorChange) hooks.onColorChange(petColor);
   }
 
   function applySize() {
