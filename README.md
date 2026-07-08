@@ -6,7 +6,7 @@
 
 ![Terminal Workbench Pet](cover.png)
 
-A small floating ghost that lives in your Obsidian vault. It drifts around the workspace on its own, peeks over headings, reads along the paragraph you're on, spooks away from your cursor, naps in the corner when you're idle, and recolors itself when you boop it.
+A small floating ghost that lives in your Obsidian vault. It drifts around the workspace on its own, peeks over headings, reads along the paragraph you're on, spooks away from your cursor, naps in the corner when you're idle, pipes up with the occasional terminal quip, cheers you on while you write, and recolors itself when you boop it. Pick it up and fling it wherever you like.
 
 It's the companion to the [Terminal Workbench](https://github.com/Real-Fruit-Snacks/terminal-workbench) theme — the ghost matches that theme's palette out of the box — but it works with any theme.
 
@@ -22,10 +22,23 @@ Set the mode in **Settings → Terminal Workbench Pet**, or bind the commands:
 
 - `Terminal Workbench Pet: Toggle pet on or off`
 - `Terminal Workbench Pet: Cycle pet mode (off, cursor, float)`
+- `Terminal Workbench Pet: Recolor the pet`
 
-## Boop it
+## Boop it, drag it
 
 Click the ghost to pet it — it does a happy squish, tosses a heart, and cycles its body color through the theme palette (green → cyan → amber → violet → orange → red). Your color choice is remembered.
+
+Or grab it and drag it anywhere. In float mode, give it a flick and let go — it sails across the workspace with momentum, bounces gently off the edges, and settles back into drifting.
+
+## Settings
+
+Everything lives under **Settings → Terminal Workbench Pet** and applies instantly:
+
+- **Size** and **Opacity** — how big and how solid the ghost is.
+- **Color** — its starting color from the theme palette, plus a reset.
+- **Speech bubbles** — the occasional terminal quip (`zzz`, `reading...`, `boop me?`).
+- **React to writing** — a cheer when you finish a line or hit a typing streak.
+- **Nap when idle**, **Flee from cursor**, **Read along**, and **Do tricks** — toggle each quirk on or off to tune how busy the ghost feels.
 
 ## Installation
 
@@ -45,7 +58,7 @@ Requires Obsidian `1.5.0` or newer.
 
 - **Reduced motion:** if your system requests reduced motion, the ghost holds still instead of animating.
 - **Colors:** with the Terminal Workbench theme active, the ghost uses its `--ta-*` palette. Without it, it falls back to Obsidian's accent color and sensible defaults.
-- **Privacy / footprint:** no network requests. It remembers its color under a `tw-pet-color` key in local storage; everything else is in-memory. All listeners and the animation frame are torn down when the plugin is disabled.
+- **Privacy / footprint:** no network requests. Your settings (including color) are stored in the plugin's own data file; nothing else is persisted. All listeners and the animation frame are torn down when the plugin is disabled.
 - **Peek and read-along** target the active note's reading view; in editing view the ghost simply drifts.
 
 ## Development

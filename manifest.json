@@ -1,7 +1,7 @@
 {
   "id": "terminal-workbench-pet",
   "name": "Terminal Workbench Pet",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "minAppVersion": "1.5.0",
   "description": "A small floating ghost that drifts around your vault, follows your cursor, and recolors when you boop it. Matches the Terminal Workbench theme palette.",
   "author": "Real-Fruit-Snacks",

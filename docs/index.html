@@ -100,12 +100,12 @@
     footer a { color: var(--muted); }
 
     /* --- the live ghost (from the plugin's styles.css) --- */
-    #tw-pet { position: fixed; left: 0; top: 0; width: 28px; height: 28px; z-index: 25; pointer-events: none; opacity: 0.7; transition: opacity 0.9s ease;
+    #tw-pet { position: fixed; left: 0; top: 0; width: var(--pet-size, 28px); height: var(--pet-size, 28px); z-index: 25; pointer-events: none; opacity: var(--pet-base-opacity, 0.7); transition: opacity 0.9s ease;
       --pet-0: var(--ta-accent); --pet-1: var(--ta-accent-alt); --pet-2: var(--ta-warm);
       --pet-3: var(--ta-violet); --pet-4: var(--ta-orange); --pet-5: var(--ta-red); --pet-eye: var(--ta-bg-0); }
     #tw-pet.pet-nap { opacity: 0.3; }
     .pet-tilt { width: 100%; height: 100%; }
-    .pet-sprite { width: 100%; height: 100%; pointer-events: auto; cursor: pointer; animation: pet-bob 2.4s ease-in-out infinite; }
+    .pet-sprite { width: 100%; height: 100%; pointer-events: auto; cursor: grab; touch-action: none; animation: pet-bob 2.4s ease-in-out infinite; }
     .pet-sprite svg { display: block; width: 100%; height: 100%; shape-rendering: crispEdges; }
     .pet-body { fill: var(--pet-0); }
     #tw-pet[data-color="1"] .pet-body { fill: var(--pet-1); }
@@ -126,14 +126,18 @@
     #tw-pet.pet-startled { animation: pet-startle-fade 0.7s ease-out; }
     .pet-particle { position: absolute; left: 9px; top: -8px; font-family: var(--font-monospace); font-size: 12px; font-weight: 700; pointer-events: none; animation: pet-float 1.3s ease-out forwards; }
     .pet-heart { color: var(--ta-red); } .pet-bang { color: var(--ta-accent); } .pet-z { color: var(--muted); }
+    .pet-bubble { position: absolute; left: 50%; bottom: 100%; margin-bottom: 6px; transform: translateX(-50%); padding: 3px 7px; font-family: var(--font-monospace); font-size: 11px; line-height: 1.2; white-space: nowrap; color: var(--text); background: var(--bg-2); border: 1px solid var(--border); border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.28); pointer-events: none; animation: pet-bubble-in 2.6s ease forwards; }
+    .pet-bubble::after { content: ""; position: absolute; top: 100%; left: 50%; transform: translateX(-50%); border: 4px solid transparent; border-top-color: var(--bg-2); }
+    .pet-bubble-boop, .pet-bubble-good { color: var(--ta-accent); }
     @keyframes pet-bob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+    @keyframes pet-bubble-in { 0% { opacity: 0; transform: translateX(-50%) translateY(4px) scale(0.9); } 12% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); } 82% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); } 100% { opacity: 0; transform: translateX(-50%) translateY(-3px) scale(0.98); } }
     @keyframes pet-boop { 0%,100% { transform: scale(1); } 30% { transform: scale(1.35); } 60% { transform: scale(0.9); } }
     @keyframes pet-spook { 0% { transform: scaleY(1) scaleX(1); } 25% { transform: scaleY(1.5) scaleX(0.65); } 60% { transform: scaleY(0.9) scaleX(1.12); } 100% { transform: scaleY(1) scaleX(1); } }
     @keyframes pet-spin { from { transform: rotate(0); } to { transform: rotate(360deg); } }
     @keyframes pet-flip { from { transform: rotateY(0); } to { transform: rotateY(360deg); } }
     @keyframes pet-startle-fade { 0% { opacity: 0.7; } 30% { opacity: 0.25; } 100% { opacity: 0.7; } }
     @keyframes pet-float { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(-26px); } }
-    @media (prefers-reduced-motion: reduce) { .pet-sprite, .pet-particle { animation: none !important; } }
+    @media (prefers-reduced-motion: reduce) { .pet-sprite, .pet-particle { animation: none !important; } .pet-bubble { animation: none !important; opacity: 1; transform: translateX(-50%); } }
   </style>
 </head>
 <body>
@@ -164,7 +168,7 @@
       </div>
 
       <div class="playground">
-        <div class="hint">There's a ghost floating on this page right now. <b>Click it to boop it</b> — it recolors. Try the modes:</div>
+        <div class="hint">There's a ghost floating on this page right now. <b>Click it to boop it</b>, or <b>drag it around</b> and let go to fling it. Try the modes:</div>
         <div class="modes" id="modes">
           <button data-mode="float" class="active">Float</button>
           <button data-mode="cursor">Follow cursor</button>
@@ -184,6 +188,9 @@
         <div class="feature"><div class="name">Spooks &amp; naps</div><p>Get your cursor too close and it startles away with a squash-and-stretch. Idle a while and it dozes in the corner with little z's.</p></div>
         <div class="feature"><div class="name">Follow-cursor mode</div><p>Prefer a lapdog? It trails a short distance behind your pointer and rests in place when you stop.</p></div>
         <div class="feature"><div class="name">Boop to recolor</div><p>Click it to pet it — a happy squish, a tossed heart, and its body cycles the theme palette. Your color sticks.</p></div>
+        <div class="feature"><div class="name">Speaks up</div><p>Every so often it pipes up with a little terminal quip — <span class="mono">zzz</span>, <span class="mono">reading...</span>, <span class="mono">boop me?</span> — and cheers you on while you write.</p></div>
+        <div class="feature"><div class="name">Grab &amp; fling</div><p>Pick the ghost up and drop it anywhere. Give it a flick and it sails across the workspace with momentum, then settles back into drifting.</p></div>
+        <div class="feature"><div class="name">Make it yours</div><p>Settings for size, opacity, and starting color, plus switches for every quirk — quips, reactions, napping, spookiness, reading-along, and tricks.</p></div>
       </div>
     </section>
 
