@@ -4,7 +4,7 @@
 [![License: MIT](https://img.shields.io/github/license/Real-Fruit-Snacks/terminal-workbench-pet?color=2a9d6e)](LICENSE)
 [![Obsidian](https://img.shields.io/badge/obsidian-1.5.0%2B-483699)](https://obsidian.md)
 
-![Terminal Workbench Pet](cover.png)
+![Terminal Workbench Pet](https://raw.githubusercontent.com/Real-Fruit-Snacks/terminal-workbench-pet/main/cover.png)
 
 A small floating ghost that lives in your Obsidian vault. It drifts around the workspace on its own, peeks over headings, reads along the paragraph you're on, spooks away from your cursor, naps in the corner when you're idle, pipes up with the occasional terminal quip, cheers you on while you write, and recolors itself when you boop it. Pick it up and fling it wherever you like.
 
