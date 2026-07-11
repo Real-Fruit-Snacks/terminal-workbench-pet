@@ -63,6 +63,7 @@
 .pet-sprite.pet-happy .pet-eyes-happy { display: inline; }
 
 .pet-sprite.pet-happy { animation: pet-boop 0.5s ease-in-out; }
+.pet-sprite.pet-sneak { animation-play-state: paused; }
 .pet-sprite.pet-spook { animation: pet-spook 0.5s ease-out; }
 .pet-sprite.pet-spin { animation: pet-spin 0.74s ease-in-out; }
 .pet-sprite.pet-flip { animation: pet-flip 0.74s ease-in-out; }
