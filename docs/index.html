@@ -100,11 +100,11 @@
     footer a { color: var(--muted); }
 
     /* --- the live ghost (from the plugin's styles.css) --- */
-    #tw-pet { position: fixed; left: 0; top: 0; width: var(--pet-size, 28px); height: var(--pet-size, 28px); z-index: 25; pointer-events: none; opacity: var(--pet-base-opacity, 0.7); transition: opacity 0.9s ease;
+    #tw-pet { position: fixed; left: 0; top: 0; width: var(--pet-size, 28px); height: var(--pet-size, 28px); z-index: 25; pointer-events: none; opacity: var(--pet-base-opacity, 0.7); transition: opacity 0.9s ease; will-change: transform;
       --pet-0: var(--ta-accent); --pet-1: var(--ta-accent-alt); --pet-2: var(--ta-warm);
       --pet-3: var(--ta-violet); --pet-4: var(--ta-orange); --pet-5: var(--ta-red); --pet-eye: var(--ta-bg-0); }
     #tw-pet.pet-nap { opacity: 0.3; }
-    .pet-tilt { width: 100%; height: 100%; }
+    .pet-tilt { width: 100%; height: 100%; will-change: transform; }
     .pet-sprite { width: 100%; height: 100%; pointer-events: auto; cursor: grab; touch-action: none; animation: pet-bob 2.4s ease-in-out infinite; }
     .pet-sprite svg { display: block; width: 100%; height: 100%; shape-rendering: crispEdges; }
     .pet-body { fill: var(--pet-0); }
@@ -138,7 +138,20 @@
     @keyframes pet-flip { from { transform: rotateY(0); } to { transform: rotateY(360deg); } }
     @keyframes pet-startle-fade { 0% { opacity: 0.7; } 30% { opacity: 0.25; } 100% { opacity: 0.7; } }
     @keyframes pet-float { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(-26px); } }
-    @media (prefers-reduced-motion: reduce) { .pet-sprite, .pet-particle { animation: none !important; } .pet-bubble { animation: none !important; opacity: 1; transform: translateX(-50%); } }
+    /* Motion levels — the engine stamps the resolved Motion setting on data-motion. */
+    #tw-pet[data-motion="minimal"],
+    #tw-pet[data-motion="minimal"] .pet-sprite,
+    #tw-pet[data-motion="minimal"] .pet-particle { animation: none !important; }
+    #tw-pet[data-motion="minimal"] { transition: none; will-change: auto; }
+    #tw-pet[data-motion="minimal"] .pet-bubble { animation: none !important; opacity: 1; transform: translateX(-50%); }
+    #tw-pet[data-motion="calm"] .pet-sprite:not(.pet-happy):not(.pet-spook):not(.pet-spin):not(.pet-flip) { animation: none; }
+    @media (prefers-reduced-motion: reduce) {
+      #tw-pet:not([data-motion="full"]):not([data-motion="calm"]),
+      #tw-pet:not([data-motion="full"]):not([data-motion="calm"]) .pet-sprite,
+      #tw-pet:not([data-motion="full"]):not([data-motion="calm"]) .pet-particle { animation: none !important; }
+      #tw-pet:not([data-motion="full"]):not([data-motion="calm"]) { transition: none; }
+      #tw-pet:not([data-motion="full"]):not([data-motion="calm"]) .pet-bubble { animation: none !important; opacity: 1; transform: translateX(-50%); }
+    }
   </style>
 </head>
 <body>
@@ -176,6 +189,16 @@
           <button data-mode="off">Off</button>
         </div>
       </div>
+
+      <div class="playground">
+        <div class="hint"><b>Motion</b> — new in 1.2.0. Auto follows your system's reduced-motion preference, Calm halves the frame rate and drops the idle bob, Minimal holds the ghost still:</div>
+        <div class="modes" id="motions">
+          <button data-motion="auto" class="active">Auto</button>
+          <button data-motion="full">Full</button>
+          <button data-motion="calm">Calm</button>
+          <button data-motion="minimal">Minimal</button>
+        </div>
+      </div>
     </section>
 
     <section class="block">
@@ -191,7 +214,7 @@
         <div class="feature"><div class="name">Boop to recolor</div><p>Click it to pet it — a happy squish, a tossed heart, and its body cycles the theme palette. Your color sticks.</p></div>
         <div class="feature"><div class="name">Speaks up</div><p>Every so often it pipes up with a little terminal quip — <span class="mono">zzz</span>, <span class="mono">reading...</span>, <span class="mono">boop me?</span> — and cheers you on while you write.</p></div>
         <div class="feature"><div class="name">Grab &amp; fling</div><p>Pick the ghost up and drop it anywhere. Give it a flick and it sails across the workspace with momentum, then settles back into drifting.</p></div>
-        <div class="feature"><div class="name">Make it yours</div><p>Settings for size, opacity, and starting color, plus switches for every quirk — quips, reactions, napping, spookiness, reading-along, and tricks.</p></div>
+        <div class="feature"><div class="name">Make it yours</div><p>Settings for size, opacity, starting color, and motion level (full, calm, or minimal for machines that hate animation), plus switches for every quirk — quips, reactions, napping, spookiness, reading-along, and tricks.</p></div>
       </div>
     </section>
 
@@ -235,6 +258,21 @@
       this.querySelectorAll("button").forEach(function (x) { x.classList.remove("active"); });
       b.classList.add("active");
     });
+
+    var motions = document.getElementById("motions");
+    motions.addEventListener("click", function (e) {
+      var b = e.target.closest("button[data-motion]");
+      if (!b || !window.twpetSet) return;
+      window.twpetSet("motion", b.getAttribute("data-motion"));
+      this.querySelectorAll("button").forEach(function (x) { x.classList.remove("active"); });
+      b.classList.add("active");
+    });
+    // Reflect a motion choice remembered from a previous visit.
+    if (window.twpetSettings) {
+      motions.querySelectorAll("button").forEach(function (x) {
+        x.classList.toggle("active", x.getAttribute("data-motion") === window.twpetSettings.motion);
+      });
+    }
   </script>
 </body>
 </html>
