@@ -80,6 +80,7 @@ Plain JavaScript, no build step — Obsidian loads `main.js` directly.
 | `manifest.json` | Plugin metadata |
 | `versions.json` | Release compatibility map |
 | `docs/index.html` | Showcase page with a live ghost (GitHub Pages) |
+| `.github/workflows/ci.yml` | On every push: syntax-checks `main.js`, validates `manifest.json` against `versions.json`, and loads the plugin under a stubbed Obsidian API |
 | `.github/workflows/release.yml` | Attaches `main.js`, `manifest.json`, `styles.css` to a release when a version tag is pushed |
 
 To cut a release: bump `version` in `manifest.json`, add the entry to `versions.json`, then push a tag with the same version.
