@@ -12,6 +12,7 @@
   pointer-events: none;
   opacity: var(--pet-base-opacity, 0.7);
   transition: opacity 0.9s ease;
+  will-change: transform;
 
   --pet-0: var(--ta-accent, var(--interactive-accent));
   --pet-1: var(--ta-accent-alt, #6bdcff);
@@ -24,7 +25,7 @@
 
 #tw-pet.pet-nap { opacity: 0.3; }
 
-.pet-tilt { width: 100%; height: 100%; }
+.pet-tilt { width: 100%; height: 100%; will-change: transform; }
 
 .pet-sprite {
   width: 100%;
@@ -154,10 +155,40 @@
   100% { opacity: 0; transform: translateX(-50%) translateY(-3px) scale(0.98); }
 }
 
+/* Motion levels — the plugin resolves its Motion setting (Auto follows the OS
+   reduced-motion preference) and stamps the result on data-motion.
+   "minimal" freezes every decorative animation; "calm" drops the infinite
+   idle bob but keeps the one-shot reactions (boop, spook, spin, flip). */
+#tw-pet[data-motion="minimal"],
+#tw-pet[data-motion="minimal"] .pet-sprite,
+#tw-pet[data-motion="minimal"] .pet-particle {
+  animation: none !important;
+}
+#tw-pet[data-motion="minimal"] {
+  transition: none;
+  will-change: auto;
+}
+#tw-pet[data-motion="minimal"] .pet-bubble {
+  animation: none !important;
+  opacity: 1;
+  transform: translateX(-50%);
+}
+#tw-pet[data-motion="calm"] .pet-sprite:not(.pet-happy):not(.pet-spook):not(.pet-spin):not(.pet-flip) {
+  animation: none;
+}
+
+/* Safety net if the plugin's script never stamped data-motion. An explicit
+   Full/Calm choice deliberately overrides the OS preference. */
 @media (prefers-reduced-motion: reduce) {
-  .pet-sprite,
-  .pet-particle { animation: none !important; }
-  .pet-bubble {
+  #tw-pet:not([data-motion="full"]):not([data-motion="calm"]),
+  #tw-pet:not([data-motion="full"]):not([data-motion="calm"]) .pet-sprite,
+  #tw-pet:not([data-motion="full"]):not([data-motion="calm"]) .pet-particle {
+    animation: none !important;
+  }
+  #tw-pet:not([data-motion="full"]):not([data-motion="calm"]) {
+    transition: none;
+  }
+  #tw-pet:not([data-motion="full"]):not([data-motion="calm"]) .pet-bubble {
     animation: none !important;
     opacity: 1;
     transform: translateX(-50%);

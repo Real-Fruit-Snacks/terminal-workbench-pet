@@ -36,6 +36,7 @@ Everything lives under **Settings → Terminal Workbench Pet** and applies insta
 
 - **Size** and **Opacity** — how big and how solid the ghost is.
 - **Color** — its starting color from the theme palette, plus a reset.
+- **Motion** — how much the ghost animates. **Auto** follows your system's reduced-motion preference, **Full** always animates, **Calm** halves the frame rate and drops the idle bob (great for laptops or slower machines), and **Minimal** holds the ghost still.
 - **Speech bubbles** — the occasional terminal quip (`zzz`, `reading...`, `boop me?`).
 - **React to writing** — a cheer when you finish a line or hit a typing streak.
 - **Nap when idle**, **Flee from cursor**, **Read along**, and **Do tricks** — toggle each quirk on or off to tune how busy the ghost feels.
@@ -62,7 +63,8 @@ Requires Obsidian `1.5.0` or newer.
 
 ## Notes
 
-- **Reduced motion:** if your system requests reduced motion, the ghost holds still instead of animating.
+- **Reduced motion:** with Motion on **Auto** (the default), the ghost holds still whenever your system requests reduced motion — and it reacts live if that preference changes. Pick **Calm** or **Minimal** to tone the ghost down on machines that struggle with animation regardless of the system setting, or **Full** to always animate.
+- **Idle cost:** the animation loop sleeps whenever there is nothing to animate — while the ghost naps, while it's off-screen, and in cursor mode once it has settled — instead of running every frame.
 - **Colors:** with the Terminal Workbench theme active, the ghost uses its `--ta-*` palette. Without it, it falls back to Obsidian's accent color and sensible defaults.
 - **Privacy / footprint:** no network requests. Your settings (including color) are stored in the plugin's own data file; nothing else is persisted. All listeners and the animation frame are torn down when the plugin is disabled.
 - **Peek and read-along** target the active note's reading view; in editing view the ghost simply drifts.

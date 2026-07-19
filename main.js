@@ -8,8 +8,10 @@ const obsidian = require("obsidian");
 
 const MODES = ["off", "cursor", "float"];
 const COLORS = ["Green", "Cyan", "Amber", "Violet", "Orange", "Red"];
+const MOTIONS = ["auto", "full", "calm", "minimal"];
 const DEFAULT_SETTINGS = {
   mode: "float",
+  motion: "auto",  // auto | full | calm | minimal
   size: 28,        // px, 16–48
   opacity: 70,     // percent, 20–100
   color: 0,        // starting palette index, 0–5
@@ -65,9 +67,28 @@ function createPetEngine(pet, getSettings, hooks) {
 
   const tilt = pet.querySelector(".pet-tilt");
   const sprite = pet.querySelector(".pet-sprite");
-  const reduced =
-    window.matchMedia &&
-    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  // Motion level. "auto" follows the OS reduced-motion preference (tracked
+  // live), "minimal" holds the ghost still, "calm" halves the frame rate and
+  // drops the idle bob, "full" animates regardless of the OS preference.
+  const motionQuery = window.matchMedia
+    ? window.matchMedia("(prefers-reduced-motion: reduce)")
+    : null;
+  function motionSetting() {
+    const m = S().motion;
+    return MOTIONS.indexOf(m) !== -1 ? m : "auto";
+  }
+  function isReduced() {
+    const m = motionSetting();
+    return m === "minimal" || (m === "auto" && !!(motionQuery && motionQuery.matches));
+  }
+  function isCalm() { return motionSetting() === "calm"; }
+  function applyMotion() {
+    pet.setAttribute(
+      "data-motion",
+      isReduced() ? "minimal" : isCalm() ? "calm" : "full"
+    );
+  }
 
   const MARGIN = 8, TOP_CLAMP = 80;
   const TRAIL = 44;
@@ -99,6 +120,9 @@ function createPetEngine(pet, getSettings, hooks) {
 
   let roamPhase = "drift";
   let phaseUntil = 0;
+  let napSettled = false;
+  let wantReadCheck = false;
+  let lastFrameT = 0;
   let tgt = { x: x, y: y };
   let tgtEase = 0.02;
   let bobT = Math.random() * 6.28;
@@ -127,12 +151,29 @@ function createPetEngine(pet, getSettings, hooks) {
   let drag = null;
   let flingVX = 0, flingVY = 0;
 
-  // listener bookkeeping for clean teardown
+  // listener + timer bookkeeping for clean teardown
   const handlers = [];
-  let blinkTimer = null;
+  const timers = new Set();
+  let wakeTimer = null;
   function on(target, type, fn, opt) {
     target.addEventListener(type, fn, opt);
     handlers.push([target, type, fn, opt]);
+  }
+  // Tracked setTimeout: never fires after destroy(), always cleared on teardown.
+  function after(fn, ms) {
+    const id = setTimeout(function () {
+      timers.delete(id);
+      if (!dead) fn();
+    }, ms);
+    timers.add(id);
+    return id;
+  }
+  // Arm a single deferred wake-up of the animation loop. Used to sleep the
+  // rAF loop entirely during idle states (nap, off-screen, cursor settled)
+  // instead of burning frames doing nothing.
+  function armWake(ms) {
+    if (wakeTimer !== null) { clearTimeout(wakeTimer); timers.delete(wakeTimer); }
+    wakeTimer = after(function () { wakeTimer = null; schedule(); }, Math.max(30, ms));
   }
 
   function petOn() { return getMode() !== "off"; }
@@ -142,7 +183,15 @@ function createPetEngine(pet, getSettings, hooks) {
   }
 
   // The reading content of the active note (reading or editing view).
+  // Prefers the host-provided lookup (which uses the official workspace API);
+  // the global selectors remain only as a fallback.
   function noteEl() {
+    if (hooks.getNoteEl) {
+      try {
+        const el = hooks.getNoteEl();
+        if (el) return el;
+      } catch (err) { /* fall through to selector fallback */ }
+    }
     return (
       document.querySelector(".workspace-leaf.mod-active .markdown-preview-view") ||
       document.querySelector(".workspace-leaf.mod-active .markdown-source-view .cm-content") ||
@@ -181,7 +230,7 @@ function createPetEngine(pet, getSettings, hooks) {
   // Show a small speech bubble. Rate-limited unless `force` (boops, flings).
   function say(text, kind, force) {
     if (!S().quips) return;
-    if (reduced && !force) return;
+    if (isReduced() && !force) return;
     const now = Date.now();
     if (!force && now - lastQuip < QUIP_GAP) return;
     lastQuip = now;
@@ -191,7 +240,7 @@ function createPetEngine(pet, getSettings, hooks) {
     b.className = "pet-bubble" + (kind ? " pet-bubble-" + kind : "");
     b.textContent = text;
     pet.appendChild(b);
-    setTimeout(function () { if (b.parentNode) b.parentNode.removeChild(b); }, 2600);
+    after(function () { if (b.parentNode) b.parentNode.removeChild(b); }, 2600);
   }
 
   function maxX() { return window.innerWidth - SIZE - MARGIN; }
@@ -226,7 +275,7 @@ function createPetEngine(pet, getSettings, hooks) {
     s.className = "pet-particle " + cls;
     s.textContent = ch;
     pet.appendChild(s);
-    setTimeout(function () {
+    after(function () {
       if (s.parentNode) s.parentNode.removeChild(s);
     }, 1400);
   }
@@ -239,11 +288,11 @@ function createPetEngine(pet, getSettings, hooks) {
   }
 
   function scheduleBlink() {
-    blinkTimer = setTimeout(function () {
-      if (dead) return;
-      if (!napping && !petting && !spinning && roamPhase !== "nap") {
+    after(function () {
+      if (petOn() && !isReduced() && !document.hidden &&
+          !napping && !petting && !spinning && roamPhase !== "nap") {
         sprite.className = "pet-sprite pet-blink";
-        setTimeout(function () {
+        after(function () {
           if (!petting && !spinning) sprite.className = "pet-sprite";
         }, 160);
       }
@@ -254,6 +303,7 @@ function createPetEngine(pet, getSettings, hooks) {
   function markActivity() {
     lastActive = Date.now();
     if (petMode() === "float" && roamPhase === "nap") wakeFromNap();
+    schedule();
   }
   on(document, "mousemove", function (e) {
     mx = e.clientX; my = e.clientY;
@@ -261,12 +311,12 @@ function createPetEngine(pet, getSettings, hooks) {
     markActivity();
     if (napping) setNap(false);
     if (petMode() === "float") maybeSpook();
-    schedule();
   });
   on(document, "scroll", function () {
     markActivity();
-    if (petMode() === "float") maybeRead();
-    schedule();
+    // Defer the paragraph measurement to the animation frame so the scroll
+    // handler itself never forces layout.
+    if (petMode() === "float") wantReadCheck = true;
   }, true);
   on(document, "keydown", onKey);
   on(document, "click", markActivity, true);
@@ -275,7 +325,7 @@ function createPetEngine(pet, getSettings, hooks) {
   // React to writing: a cheer on paragraph breaks and on typing streaks.
   function onKey(e) {
     markActivity();
-    if (reduced) return;
+    if (isReduced()) return;
     const s = S();
     if (!s.reactions || petMode() !== "float") return;
     const now = Date.now();
@@ -294,7 +344,7 @@ function createPetEngine(pet, getSettings, hooks) {
   function cheer(text) {
     if (dead || petting || spinning || roamPhase === "spook") return;
     sprite.className = "pet-sprite pet-happy";
-    setTimeout(function () {
+    after(function () {
       if (!petting && !spinning) sprite.className = "pet-sprite";
     }, 500);
     if (text) say(text, "good", true);
@@ -311,8 +361,10 @@ function createPetEngine(pet, getSettings, hooks) {
     if (Math.random() < 0.5) spawnParticle("♥", "pet-heart");
     else spawnParticle("!", "pet-bang");
     say(pick(QUIPS.boop), "boop", true);
-    if (petMode() === "float") { wakeFromNap(); zipAway(false); }
-    setTimeout(function () {
+    // In reduced motion the state machine doesn't run, so zipping away would
+    // leave the ghost permanently unclickable — just stay put instead.
+    if (petMode() === "float" && !isReduced()) { wakeFromNap(); zipAway(false); }
+    after(function () {
       if (!spinning) sprite.className = "pet-sprite";
       petting = false;
     }, 1100);
@@ -331,7 +383,7 @@ function createPetEngine(pet, getSettings, hooks) {
   function endDrag(vx, vy) {
     sprite.style.cursor = "";
     markActivity();
-    if (petMode() === "float" && !reduced) {
+    if (petMode() === "float" && !isReduced()) {
       flingVX = Math.max(-42, Math.min(42, vx));
       flingVY = Math.max(-42, Math.min(42, vy));
       if (Math.abs(flingVX) + Math.abs(flingVY) > 6) say(pick(QUIPS.fling), "good", true);
@@ -420,8 +472,9 @@ function createPetEngine(pet, getSettings, hooks) {
     }
   }
   function maybeSpook() {
-    if (reduced || mx === null || !S().spookiness) return;
-    if (roamPhase === "spook" || roamPhase === "nap" || roamPhase === "drag" || roamPhase === "fling") return;
+    if (isReduced() || mx === null || !S().spookiness) return;
+    if (roamPhase === "spook" || roamPhase === "nap" || roamPhase === "drag" ||
+        roamPhase === "fling" || roamPhase === "vanish" || roamPhase === "gone") return;
     if (Date.now() - lastStartle < SPOOK_COOLDOWN) return;
     if (dist(x + SIZE / 2, y + SIZE / 2, mx, my) <= SPOOK_DIST) zipAway(true);
   }
@@ -563,7 +616,7 @@ function createPetEngine(pet, getSettings, hooks) {
     return { x: clampX(x0), y: clampY(r.top + r.height / 2 - SIZE / 2) };
   }
   function maybeRead() {
-    if (reduced || petMode() !== "float" || roamPhase !== "drift" || !S().readAlong) return;
+    if (isReduced() || petMode() !== "float" || roamPhase !== "drift" || !S().readAlong) return;
     const now = Date.now();
     if (now - lastRead < 9000 || Math.random() > 0.5) return;
     const p = paragraphNearCenter();
@@ -611,7 +664,7 @@ function createPetEngine(pet, getSettings, hooks) {
     spinning = true;
     lastStartle = now;
     sprite.className = "pet-sprite " + (Math.random() < 0.5 ? "pet-spin" : "pet-flip");
-    setTimeout(function () {
+    after(function () {
       spinning = false;
       if (!petting) sprite.className = "pet-sprite";
     }, 740);
@@ -685,6 +738,7 @@ function createPetEngine(pet, getSettings, hooks) {
 
   function enterNap(now) {
     roamPhase = "nap";
+    napSettled = false;
     clearPeek();
     pet.style.opacity = "";
     tgt = { x: maxX(), y: maxY() };
@@ -697,16 +751,19 @@ function createPetEngine(pet, getSettings, hooks) {
     ease();
     renderAt(x, y);
     if (dist(x, y, tgt.x, tgt.y) < 3) {
+      napSettled = true;
       pet.style.opacity = "0.2";
       if (now - lastZ > 3200) { lastZ = now; spawnParticle("z", "pet-z"); }
     }
   }
   function wakeFromNap() {
     if (roamPhase !== "nap") return;
+    napSettled = false;
     pet.style.opacity = "";
     pet.className = "";
     lastStartle = Date.now();
     enterDrift(Date.now());
+    schedule();
   }
 
   function stepRoam(now) {
@@ -732,30 +789,52 @@ function createPetEngine(pet, getSettings, hooks) {
     raf = null;
     if (dead) return;
     const now = Date.now();
+    // Calm mode: cap the loop at ~30fps to halve per-frame work.
+    if (isCalm() && now - lastFrameT < 32) { schedule(); return; }
+    lastFrameT = now;
     if (drag && drag.moved) { schedule(); return; }
+
     if (petMode() === "float") {
-      if (reduced) renderAt(x, y);
-      else stepRoam(now);
+      // Reduced motion: the ghost holds still — render nothing per-frame and
+      // let the loop sleep instead of spinning at 60fps doing no work.
+      if (isReduced()) return;
+      if (wantReadCheck) { wantReadCheck = false; maybeRead(); }
+      stepRoam(now);
+      // Idle states sleep the loop; a tracked timeout (or any user activity)
+      // wakes it back up.
+      if (roamPhase === "gone") { armWake(phaseUntil - now); return; }
+      if (roamPhase === "nap" && napSettled) { armWake(3200); return; }
       schedule();
       return;
     }
+
+    // cursor mode
+    if (isReduced()) return;
     if (S().napping && !napping && now - lastMove > NAP_AFTER) setNap(true);
-    if (napping && now - lastZ > 3000) { lastZ = now; spawnParticle("z", "pet-z"); }
-    if (!reduced && !napping && mx !== null) {
+    if (napping) {
+      if (now - lastZ > 3000) { lastZ = now; spawnParticle("z", "pet-z"); }
+      armWake(3000);
+      return;
+    }
+    let moving = false;
+    if (mx !== null) {
       const cx = x + SIZE / 2, cy = y + SIZE / 2;
       const dx = cx - mx, dy = cy - my;
       const d = Math.sqrt(dx * dx + dy * dy) || 1;
       const txp = mx + (dx / d) * TRAIL - SIZE / 2;
       const typ = my + (dy / d) * TRAIL - SIZE / 2;
       const vx = (txp - x) * EASE, vy = (typ - y) * EASE;
-      if (Math.abs(vx) > 0.05 || Math.abs(vy) > 0.05) { x += vx; y += vy; }
+      if (Math.abs(vx) > 0.05 || Math.abs(vy) > 0.05) { x += vx; y += vy; moving = true; }
       lean += (vx * 1.6 - lean) * 0.1;
       if (lean > 10) lean = 10;
       if (lean < -10) lean = -10;
       clampCore();
       apply();
     }
-    schedule();
+    // Once the trail has settled and the pointer is still, sleep until either
+    // new input arrives (handlers call schedule()) or it's time to nap.
+    if (moving || now - lastMove < 300) { schedule(); return; }
+    if (S().napping) armWake(NAP_AFTER - (now - lastMove) + 100);
   }
   function schedule() {
     if (!dead && !document.hidden && petOn() && raf === null) {
@@ -768,8 +847,25 @@ function createPetEngine(pet, getSettings, hooks) {
     pet.style.opacity = "";
     lastActive = Date.now();
     lastStartle = Date.now();
-    if (reduced) { x = maxX(); y = maxY(); renderAt(x, y); return; }
+    if (isReduced()) { x = maxX(); y = maxY(); renderAt(x, y); return; }
     enterDrift(Date.now());
+  }
+  // Freeze the ghost in place, visible and clickable, wherever it currently is.
+  // Used when motion drops to minimal while the pet is mid-behavior (possibly
+  // clipped, invisible, or off-screen).
+  function settleStill() {
+    clearPeek();
+    setNap(false);
+    napSettled = false;
+    readEl = null;
+    roamPhase = "drift";
+    lean = 0;
+    pet.style.opacity = "";
+    pet.className = "";
+    sprite.className = "pet-sprite";
+    setBoopable(true);
+    clampCore();
+    apply();
   }
   function leaveRoam() {
     clearPeek();
@@ -782,31 +878,44 @@ function createPetEngine(pet, getSettings, hooks) {
     if (!document.hidden) { lastMove = Date.now(); markActivity(); schedule(); }
   });
   on(window, "resize", function () { clampCore(); apply(); });
+  // Follow the OS reduced-motion preference live (matters for "auto").
+  if (motionQuery && typeof motionQuery.addEventListener === "function") {
+    on(motionQuery, "change", function () { notifySettingsChanged(); });
+  }
 
   // Re-read settings after any change: apply appearance live, and only reset the
-  // state machine when the mode itself changed (so tweaking a slider won't teleport).
+  // state machine when the mode or effective motion level changed (so tweaking
+  // a slider won't teleport).
   let lastMode = getMode();
+  let lastReduced = isReduced();
   function notifySettingsChanged() {
     applySize();
     applyOpacity();
+    applyMotion();
     setPetColor(S().color);
     const m = getMode();
     pet.style.display = m === "off" ? "none" : "";
     if (m === "off") {
       if (raf) { window.cancelAnimationFrame(raf); raf = null; }
       lastMode = m;
+      lastReduced = isReduced();
       return;
     }
     if (!S().napping && (napping || roamPhase === "nap")) {
       setNap(false);
       if (roamPhase === "nap") wakeFromNap();
     }
+    const red = isReduced();
     if (m !== lastMode) {
       setNap(false);
       if (m === "float") enterRoam();
       else { leaveRoam(); lastMove = Date.now(); }
+    } else if (red !== lastReduced) {
+      if (red) settleStill();
+      else if (m === "float") enterRoam();
     }
     lastMode = m;
+    lastReduced = red;
     schedule();
   }
   function notifyModeChanged() { notifySettingsChanged(); }
@@ -814,7 +923,9 @@ function createPetEngine(pet, getSettings, hooks) {
   function destroy() {
     dead = true;
     if (raf) { window.cancelAnimationFrame(raf); raf = null; }
-    if (blinkTimer) { clearTimeout(blinkTimer); blinkTimer = null; }
+    timers.forEach(function (id) { clearTimeout(id); });
+    timers.clear();
+    wakeTimer = null;
     for (let i = 0; i < handlers.length; i++) {
       const h = handlers[i];
       h[0].removeEventListener(h[1], h[2], h[3]);
@@ -825,6 +936,7 @@ function createPetEngine(pet, getSettings, hooks) {
   // start
   applySize();
   applyOpacity();
+  applyMotion();
   applyPetColor();
   scheduleBlink();
   pet.style.display = getMode() === "off" ? "none" : "";
@@ -874,12 +986,15 @@ module.exports = class TerminalWorkbenchPet extends obsidian.Plugin {
   }
 
   onunload() {
+    this.unloaded = true;
+    this.flushSave();
     this.unmount();
   }
 
   normalizeSettings() {
     const s = this.settings;
     if (MODES.indexOf(s.mode) === -1) s.mode = "float";
+    if (MOTIONS.indexOf(s.motion) === -1) s.motion = "auto";
     s.size = clampNum(s.size, 16, 48, 28);
     s.opacity = clampNum(s.opacity, 20, 100, 70);
     s.color = (typeof s.color === "number" && s.color >= 0 && s.color < COLORS.length) ? (s.color | 0) : 0;
@@ -889,7 +1004,7 @@ module.exports = class TerminalWorkbenchPet extends obsidian.Plugin {
   }
 
   mount() {
-    if (this.petEl) return;
+    if (this.petEl || this.unloaded) return;
     const el = document.body.createDiv({ attr: { id: "tw-pet", "aria-hidden": "true" } });
     const tilt = el.createDiv({ cls: "pet-tilt" });
     const sprite = tilt.createDiv({ cls: "pet-sprite", attr: { title: "boop to recolor · drag to move" } });
@@ -898,7 +1013,20 @@ module.exports = class TerminalWorkbenchPet extends obsidian.Plugin {
     this.engine = createPetEngine(
       el,
       () => this.settings,
-      { onColorChange: (c) => { this.settings.color = c; this.saveData(this.settings); } }
+      {
+        onColorChange: (c) => { this.settings.color = c; this.requestSave(); },
+        // Resolve the active note's content root through the official
+        // workspace API instead of global class-name selectors.
+        getNoteEl: () => {
+          const view = this.app.workspace.getActiveViewOfType(obsidian.MarkdownView);
+          if (!view || !view.contentEl) return null;
+          const mode = typeof view.getMode === "function" ? view.getMode() : "";
+          const el2 = mode === "preview"
+            ? view.contentEl.querySelector(".markdown-preview-view")
+            : view.contentEl.querySelector(".cm-content");
+          return el2 || view.contentEl;
+        },
+      }
     );
   }
 
@@ -907,15 +1035,36 @@ module.exports = class TerminalWorkbenchPet extends obsidian.Plugin {
     if (this.petEl) { this.petEl.remove(); this.petEl = null; }
   }
 
-  async saveAndApply() {
-    await this.saveData(this.settings);
+  // Saves are debounced (sliders fire on every step, boops can be spammed)
+  // and serialized through a promise chain so writes to data.json never overlap.
+  requestSave() {
+    if (this.saveTimer) clearTimeout(this.saveTimer);
+    this.saveTimer = setTimeout(() => { this.saveTimer = null; this.persist(); }, 400);
+  }
+
+  flushSave() {
+    if (this.saveTimer) {
+      clearTimeout(this.saveTimer);
+      this.saveTimer = null;
+      this.persist();
+    }
+  }
+
+  persist() {
+    this.saveChain = (this.saveChain || Promise.resolve())
+      .then(() => this.saveData(this.settings))
+      .catch((err) => console.error("Terminal Workbench Pet: failed to save settings", err));
+  }
+
+  saveAndApply() {
+    this.requestSave();
     if (this.engine) this.engine.notifySettingsChanged();
   }
 
-  async setMode(mode) {
+  setMode(mode) {
     if (MODES.indexOf(mode) === -1) return;
     this.settings.mode = mode;
-    await this.saveAndApply();
+    this.saveAndApply();
   }
 };
 
@@ -979,6 +1128,21 @@ class PetSettingTab extends obsidian.PluginSettingTab {
         d.addOption("float", "Float freely");
         d.setValue(s.mode);
         d.onChange((v) => this.plugin.setMode(v));
+      });
+
+    new obsidian.Setting(containerEl)
+      .setName("Motion")
+      .setDesc("Lower this if animations feel heavy or choppy on your machine. Auto follows your system's reduced-motion preference. Calm halves the frame rate and drops the idle bob. Minimal holds the ghost still.")
+      .addDropdown((d) => {
+        d.addOption("auto", "Auto (follow system)");
+        d.addOption("full", "Full");
+        d.addOption("calm", "Calm (low power)");
+        d.addOption("minimal", "Minimal (no motion)");
+        d.setValue(MOTIONS.indexOf(s.motion) !== -1 ? s.motion : "auto");
+        d.onChange((v) => {
+          s.motion = MOTIONS.indexOf(v) !== -1 ? v : "auto";
+          this.plugin.saveAndApply();
+        });
       });
 
     this.toggle(containerEl, "quips", "Speech bubbles",
