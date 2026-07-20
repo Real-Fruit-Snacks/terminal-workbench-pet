@@ -6,6 +6,8 @@
 
 ![Terminal Workbench Pet](https://raw.githubusercontent.com/Real-Fruit-Snacks/terminal-workbench-pet/main/cover.png)
 
+Part of the [Terminal Workbench family](https://github.com/Real-Fruit-Snacks/terminal-workbench-suite) — one repo with the design spec, CSS tokens, every port, and the official monospace font.
+
 A small floating ghost that lives in your Obsidian vault. It drifts around the workspace on its own, peeks over headings, reads along the paragraph you're on, spooks away from your cursor, naps in the corner when you're idle, pipes up with the occasional terminal quip, cheers you on while you write, and recolors itself when you boop it. Pick it up and fling it wherever you like.
 
 It's the companion to the [Terminal Workbench](https://github.com/Real-Fruit-Snacks/terminal-workbench) theme — the ghost matches that theme's palette out of the box — but it works with any theme.
